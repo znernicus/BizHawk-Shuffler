@@ -1,33 +1,83 @@
-diff = 0
-lowTime = 5
-highTime = 30
-newGame = 0
-i = 0
-x = 0
-romSet = {}
-gamePath = ".\\CurrentROMs\\"
-settingsPath = "settings.xml"
-if userdata.get("countdown") ~= nil then
-	countdown = userdata.get("countdown")
-else
-	countdown = false
-end
-currentChangeCount = 0
-currentGame = 1
-c = {}
-readOldTime = ""
-saveOldTime = 0
-savePlayCount = 0
-if userdata.get("currentSaveslot") ~= nil then
-	currentSaveslot = userdata.get("currentSaveslot")
-else
-	currentSaveslot = 1
-end
+function Startup()
+	console.log("Script Loaded")
+	diff = 0
+	lowTime = 5
+	highTime = 30
+	newGame = 0
+	i = 0
+	x = 0
+	romSet = {}
+	gamePath = ".\\CurrentROMs\\"
+	settingsPath = "settings.xml"
+	if userdata.get("countdown") ~= nil then
+		countdown = userdata.get("countdown")
+	else
+		countdown = false
+	end
+	currentChangeCount = 0
+	currentGame = 1
+	c = {}
+	readOldTime = ""
+	saveOldTime = 0
+	savePlayCount = 0
+	if userdata.get("currentSaveslot") ~= nil then
+		currentSaveslot = userdata.get("currentSaveslot")
+	else
+		currentSaveslot = 1
+	end
 
-if userdata.get("currentChangeCount") ~= nil then -- Syncs up the last time settings changed so it doesn't needlessly read the CurrentROMs folder again.
-	currentChangeCount = userdata.get("currentChangeCount")
+	if userdata.get("currentChangeCount") ~= nil then -- Syncs up the last time settings changed so it doesn't needlessly read the CurrentROMs folder again.
+		currentChangeCount = userdata.get("currentChangeCount")
+	end
+	databaseSize = userdata.get("databaseSize")
+	
+	if databaseSize ~= nil then
+		currentGame = userdata.get("currentGame")
+		openCurrentTime(rom)
+		console.log("Current Game: " .. currentGame)
+		lowTime = userdata.get("lowTime")
+		highTime = userdata.get("highTime")
+		seed = (userdata.get("seed"))
+		math.randomseed(seed)
+		math.random()
+		if lowTime ~= highTime then
+			timeLimit = math.random(lowTime * 60,highTime * 60)
+		else
+			timeLimit = tonumber(highTime * 60)
+		end
+	else 
+		getSettings(settingsPath)
+		timeLimit = 5
+		dirLookup(directory)
+		seed = settingsValue["value4"]
+		math.randomseed(seed)
+		math.random()
+		console.log("Initial seed " .. seed)
+	end
+
+	i = 0
+	while i < databaseSize do
+		i = i + 1
+		romSet[i] = userdata.get("rom" .. i)
+	end
+	
+	console.log("Time Limit " .. timeLimit)
+	
+	buffer = 0 -- Sets countdown location. Adding 8 makes it appear correct for the NES.
+	if emu.getsystemid() == "NES" then
+		buffer = 8
+	end
+	
+	if userdata.get("currentChangeCount") ~= null then
+		currentChangeCount = userdata.get("currentChangeCount")
+	else
+		currentChangeCount = 0
+	end
+	
+	if databaseSize == 1 then
+		timeLimit = 6000
+	end
 end
-databaseSize = userdata.get("databaseSize")
 
 function openCurrentTime(rom)
 	oldTime = io.open(".\\TimeLogs\\" .. currentGame .. ".txt","a+")
@@ -110,39 +160,6 @@ function getSettings(filename) -- Gets the settings saved by the RaceShufflerSet
 	end	
 end
 
-if databaseSize ~= nil then
-	currentGame = userdata.get("currentGame")
-	openCurrentTime(rom)
-	console.log("Current Game: " .. currentGame)
-	lowTime = userdata.get("lowTime")
-	highTime = userdata.get("highTime")
-	seed = (userdata.get("seed"))
-	math.randomseed(seed)
-	math.random()
-	if lowTime ~= highTime then
-		timeLimit = math.random(lowTime * 60,highTime * 60)
-	else
-		timeLimit = tonumber(highTime * 60)
-	end
-else 
-	getSettings(settingsPath)
-	timeLimit = 5
-	dirLookup(directory)
-	seed = settingsValue["value4"]
-	math.randomseed(seed)
-	math.random()
-	console.log("Initial seed " .. seed)
-end
-
-
-i = 0
-while i < databaseSize do
-	i = i + 1
-	romSet[i] = userdata.get("rom" .. i)
-end
-
-console.log("Time Limit " .. timeLimit)
-
 --Commenting delay out until we implement it in the setup bot. Feel free to use it yourself.
 --[[
 
@@ -192,7 +209,10 @@ function nextGame(game) -- Changes to the next game and saves the current settin
 		currentGame = newGame
 		userdata.set("first",1)
 		savestate.saveslot(currentSaveslot)
-		client.openrom(gamePath .. currentGame)
+		
+		--Disabled ROM switching for same-game play. If you want to play multiple games uncomment below line!
+		--client.openrom(gamePath .. currentGame)
+		
 		savestate.loadslot(newSaveslot)
 		console.log(currentGame .. " loaded!")
 		currentSaveslot = newSaveslot
@@ -216,12 +236,8 @@ function nextGame(game) -- Changes to the next game and saves the current settin
 			x = x + 1
 			userdata.set("rom" .. x, romSet[x])
 		end
+		Startup()
 	end	
-end
-
-buffer = 0 -- Sets countdown location. Adding 8 makes it appear correct for the NES.
-if emu.getsystemid() == "NES" then
-	buffer = 8
 end
 
 function startCountdown(count) -- Draws the countdown box and text
@@ -235,12 +251,6 @@ function startCountdown(count) -- Draws the countdown box and text
 			gui.drawText(client.bufferwidth()/2,buffer,"!....THREE....!","lime",null,null,null,"center")
 		end
 	end
-end
-
-if userdata.get("currentChangeCount") ~= null then
-	currentChangeCount = userdata.get("currentChangeCount")
-else
-	currentChangeCount = 0
 end
 
 function saveTime(currentRom)
@@ -262,9 +272,7 @@ function saveTime(currentRom)
 	currentGamePlayCount:close()
 end
 
-if databaseSize == 1 then
-	timeLimit = 6000
-end
+Startup()
 
 while true do -- The main cycle that causes the emulator to advance and trigger a game switch.
 	if (diff >= timeLimit - 180) then
