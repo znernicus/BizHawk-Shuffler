@@ -18,6 +18,11 @@ c = {}
 readOldTime = ""
 saveOldTime = 0
 savePlayCount = 0
+if userdata.get("currentSaveslot") ~= nil then
+	currentSaveslot = userdata.get("currentSaveslot")
+else
+	currentSaveslot = 1
+end
 
 if userdata.get("currentChangeCount") ~= nil then -- Syncs up the last time settings changed so it doesn't needlessly read the CurrentROMs folder again.
 	currentChangeCount = userdata.get("currentChangeCount")
@@ -158,6 +163,8 @@ function nextGame(game) -- Changes to the next game and saves the current settin
 	if databaseSize > 0 then
 		getSettings(settingsPath)
 		diff = 0
+		newSaveslot = currentSaveslot
+		
 		if currentChangeCount < changedRomCount then -- Only do dirLookup() if settings have changed
 			dirLookup(directory)
 			currentChangeCount = changedRomCount
@@ -179,13 +186,17 @@ function nextGame(game) -- Changes to the next game and saves the current settin
 				newGame = romSet[ranNumber]
 				console.log("Reroll! " .. ranNumber)
 			end
+			--Update the new saveslot so it doesn't overwrite
+			newSaveslot = ranNumber
 		end
 		currentGame = newGame
 		userdata.set("first",1)
-		savestate.saveslot(1)
+		savestate.saveslot(currentSaveslot)
 		client.openrom(gamePath .. currentGame)
-		savestate.loadslot(1)
+		savestate.loadslot(newSaveslot)
 		console.log(currentGame .. " loaded!")
+		currentSaveslot = newSaveslot
+		userdata.set("currentSaveslot", currentSaveslot)
 		userdata.set("currentGame",currentGame)
 		userdata.set("timeLimit",timeLimit)
 		romDatabase = io.open("CurrentROM.txt","w")
